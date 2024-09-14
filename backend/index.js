@@ -1,9 +1,3 @@
-const doppler = require("./doppler");
-
-doppler.fetchSecrets();
-
-require("./config/global");
-
 const server = require("./src/app").server();
 
 async function init() {

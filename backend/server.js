@@ -14,17 +14,18 @@ app.use(
       process.env.FRONTEND_URL ||
       "https://polling-app-production-5c61.up.railway.app", // adjust this to match your frontend URL
     credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE"],
   })
 );
 
 app.use(express.json());
 
-// Mount the routes without the /api prefix
-app.use("/", pollRoutes);
+// Mount the routes with the /polls prefix
+app.use("/polls", pollRoutes);
 
 // Add a test route
-app.get("/test", (req, res) => {
-  res.json({ message: "Test route working" });
+app.get("/", (req, res) => {
+  res.json({ message: "Polling app API is running" });
 });
 
 // Error handling middleware

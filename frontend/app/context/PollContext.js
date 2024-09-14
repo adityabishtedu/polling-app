@@ -62,7 +62,10 @@ export const PollProvider = ({ children }) => {
   const fetchActivePoll = async () => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/polls/active`
+        `${process.env.NEXT_PUBLIC_API_URL}/polls/active`,
+        {
+          credentials: "include",
+        }
       );
       if (response.ok) {
         const activePoll = await response.json();
@@ -71,6 +74,12 @@ export const PollProvider = ({ children }) => {
           ? activePoll.options
           : JSON.parse(activePoll.options || "[]");
         setCurrentPoll(activePoll);
+      } else {
+        console.error(
+          "Failed to fetch active poll:",
+          response.status,
+          response.statusText
+        );
       }
     } catch (error) {
       console.error("Error fetching active poll:", error);
@@ -79,15 +88,19 @@ export const PollProvider = ({ children }) => {
 
   const createPoll = async (pollData) => {
     try {
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/polls`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(pollData),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to create poll");
-      }
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/polls/create`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(pollData),
+          credentials: "include",
+        }
+      );
+      console.log({ response });
+      // if (!response.ok) {
+      //   throw new Error("Failed to create poll");
+      // }
 
       const createdPoll = await response.json();
       return createdPoll;
@@ -142,7 +155,10 @@ export const PollProvider = ({ children }) => {
   const fetchPoll = async (pollId) => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/polls/${pollId}`
+        `${process.env.NEXT_PUBLIC_API_URL}/polls/${pollId}`,
+        {
+          credentials: "include",
+        }
       );
       if (!response.ok) {
         throw new Error("Failed to fetch poll");

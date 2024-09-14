@@ -3,12 +3,13 @@ const pollController = require("../controllers/pollController");
 
 const router = express.Router();
 
-router.post("/polls", pollController.createPoll);
-router.get("/polls/active", pollController.getActivePoll);
-router.get("/polls/:id", pollController.getPoll);
-router.post("/polls/:id/answer", pollController.submitAnswer);
-router.post("/polls/:id/end", pollController.endPoll);
-router.get("/polls/:id/results", pollController.getLiveResults);
-router.post("/polls/end-all", pollController.endAllPolls);
+// Remove the /polls prefix from these routes as it's now handled in server.js
+router.post("/create", pollController.createPoll);
+router.get("/active", pollController.getActivePoll);
+router.get("/:id", pollController.getPoll);
+router.post("/:id/answer", pollController.submitAnswer);
+router.post("/:id/end", pollController.endPoll);
+router.get("/:id/results", pollController.getLiveResults);
+router.post("/end-all", pollController.endAllPolls);
 
 module.exports = router;

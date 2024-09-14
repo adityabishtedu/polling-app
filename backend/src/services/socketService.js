@@ -1,11 +1,17 @@
 const socketIo = require("socket.io");
+require("dotenv").config();
+
 let io;
 
 module.exports = {
   init: (server) => {
     io = socketIo(server, {
       cors: {
-        origin: "https://polling-app-production-5c61.up.railway.app",
+        origin: [
+          process.env.FRONTEND_URL,
+          "https://polling-app-production-5c61.up.railway.app",
+          "http://localhost:3000",
+        ],
         methods: ["GET", "POST"],
         credentials: true,
       },

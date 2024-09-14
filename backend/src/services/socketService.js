@@ -6,7 +6,7 @@ const init = (server) => {
   if (!io) {
     io = socketIo(server, {
       cors: {
-        origin: "http://localhost:3000",
+        origin: "https://polling-app-production-5c61.up.railway.app",
         methods: ["GET", "POST"],
       },
     });

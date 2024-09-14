@@ -1,28 +1,30 @@
-const mongoose = require("mongoose");
+const { DataTypes } = require("sequelize");
+const sequelize = require("../config/database");
 
-const PollSchema = new mongoose.Schema({
+const Poll = sequelize.define("Poll", {
   question: {
-    type: String,
-    required: true,
+    type: DataTypes.STRING,
+    allowNull: false,
   },
-  options: [
-    {
-      type: String,
-      required: true,
+  options: {
+    type: DataTypes.JSON,
+    allowNull: false,
+    get() {
+      const rawValue = this.getDataValue("options");
+      return rawValue ? JSON.parse(rawValue) : [];
     },
-  ],
+    set(value) {
+      this.setDataValue("options", JSON.stringify(value));
+    },
+  },
   correctAnswer: {
-    type: String,
-    required: false,
+    type: DataTypes.STRING,
+    allowNull: true,
   },
   isActive: {
-    type: Boolean,
-    default: true,
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
+    type: DataTypes.BOOLEAN,
+    defaultValue: true,
   },
 });
 
-module.exports = mongoose.model("Poll", PollSchema);
+module.exports = Poll;

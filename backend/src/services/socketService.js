@@ -1,13 +1,13 @@
 const socketIo = require("socket.io");
-
 let io;
 
-const init = (server) => {
-  if (!io) {
+module.exports = {
+  init: (server) => {
     io = socketIo(server, {
       cors: {
         origin: "https://polling-app-production-5c61.up.railway.app",
         methods: ["GET", "POST"],
+        credentials: true,
       },
     });
 
@@ -19,29 +19,15 @@ const init = (server) => {
       });
     });
 
-    console.log("Socket.IO initialized");
-  }
-  return io;
-};
-
-const getIo = () => {
-  if (!io) {
-    throw new Error("Socket.io not initialized!");
-  }
-  return io;
-};
-
-const emitToPoll = (pollId, event, data) => {
-  getIo().to(`poll_${pollId}`).emit(event, data);
-};
-
-const emitToAll = (event, data) => {
-  getIo().emit(event, data);
-};
-
-module.exports = {
-  init,
-  getIo,
-  emitToPoll,
-  emitToAll,
+    return io;
+  },
+  getIO: () => {
+    if (!io) {
+      throw new Error("Socket.io not initialized!");
+    }
+    return io;
+  },
+  emitToAll: (event, data) => {
+    io.emit(event, data);
+  },
 };

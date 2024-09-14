@@ -12,62 +12,65 @@ export const PollProvider = ({ children }) => {
   const [pollResults, setPollResults] = useState(null);
   const [hasVoted, setHasVoted] = useState(false);
 
+  const fetchPollResults = async (pollId) => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/polls/${pollId}/results`
+      );
+      if (!response.ok) {
+        throw new Error("Failed to fetch poll results");
+      }
+      const data = await response.json();
+      setPollResults(data.results);
+    } catch (error) {
+      console.error("Error fetching poll results:", error);
+    }
+  };
+
   useEffect(() => {
-    // Fetch active poll on initial load
     fetchActivePoll();
 
     socket.on("connect", () => {
       console.log("Socket connected");
     });
 
-    socket.on("connect_error", (error) => {
-      console.error("Socket connection error:", error);
-    });
-
     socket.on("newPoll", (poll) => {
       setCurrentPoll(poll);
+      setHasVoted(false);
     });
 
-    socket.on("pollEnded", (results) => {
-      setCurrentPoll(null);
-      // Handle displaying results or updating UI
+    socket.on("pollEnded", ({ pollId }) => {
+      if (currentPoll && currentPoll.id === pollId) {
+        setCurrentPoll(null);
+      }
     });
 
     socket.on("pollResults", ({ pollId, results }) => {
-      console.log("Received poll results:", results);
-      setPollResults(results);
-    });
-
-    socket.on("pollEnded", (pollId) => {
-      setCurrentPoll((prevPoll) => {
-        if (prevPoll && prevPoll.id === pollId) {
-          return { ...prevPoll, isActive: false };
-        }
-        return prevPoll;
-      });
+      if (currentPoll && currentPoll.id === pollId) {
+        setPollResults(results);
+        console.log("Received updated poll results:", results);
+      }
     });
 
     return () => {
       socket.off("newPoll");
       socket.off("pollEnded");
-      // ... remove other listeners ...
+      socket.off("pollResults");
     };
-  }, []);
+  }, [currentPoll]);
 
   const fetchActivePoll = async () => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/polls/active`
+        `${process.env.NEXT_PUBLIC_API_URL}/polls/active`
       );
       if (response.ok) {
         const activePoll = await response.json();
-        setCurrentPoll({
-          ...activePoll,
-          options: Array.isArray(activePoll.options)
-            ? activePoll.options
-            : JSON.parse(activePoll.options),
-          results: {},
-        });
+        // Ensure options is always an array
+        activePoll.options = Array.isArray(activePoll.options)
+          ? activePoll.options
+          : JSON.parse(activePoll.options || "[]");
+        setCurrentPoll(activePoll);
       }
     } catch (error) {
       console.error("Error fetching active poll:", error);
@@ -75,34 +78,18 @@ export const PollProvider = ({ children }) => {
   };
 
   const createPoll = async (pollData) => {
-    if (currentPoll && currentPoll.isActive) {
-      throw new Error(
-        "A poll is already active. End the current poll before creating a new one."
-      );
-    }
-
     try {
-      console.log("Sending poll creation request:", pollData);
-      const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/polls`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(pollData),
-        }
-      );
-      console.log("Response status:", response.status);
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/polls`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pollData),
+      });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(`Failed to create poll: ${errorData.message}`);
+        throw new Error("Failed to create poll");
       }
 
       const createdPoll = await response.json();
-      console.log("Poll created successfully:", createdPoll);
-      setCurrentPoll({ ...createdPoll, isActive: true });
       return createdPoll;
     } catch (error) {
       console.error("Error creating poll:", error);
@@ -113,53 +100,68 @@ export const PollProvider = ({ children }) => {
   const submitAnswer = async (pollId, studentId, selectedOption) => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/polls/${pollId}/answer`,
+        `${process.env.NEXT_PUBLIC_API_URL}/polls/${pollId}/answer`,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ studentId, selectedOption }),
         }
       );
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.message || "Failed to submit answer");
+        throw new Error("Failed to submit answer");
       }
 
+      const data = await response.json();
+      setPollResults(data.results);
       setHasVoted(true);
-      // Emit the answer through the socket
-      socket.emit("submitAnswer", { pollId, studentId, selectedOption });
     } catch (error) {
       console.error("Error submitting answer:", error);
-      // You might want to set an error state here and display it to the user
+      throw error;
     }
   };
 
-  const endPoll = (pollId) => {
-    socket.emit("endPoll", pollId);
-    setCurrentPoll(null);
+  const endPoll = async (pollId) => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/polls/${pollId}/end`,
+        {
+          method: "POST",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to end poll");
+      }
+    } catch (error) {
+      console.error("Error ending poll:", error);
+      throw error;
+    }
   };
 
   const fetchPoll = async (pollId) => {
     try {
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/polls/${pollId}`
+        `${process.env.NEXT_PUBLIC_API_URL}/polls/${pollId}`
       );
       if (!response.ok) {
         throw new Error("Failed to fetch poll");
       }
       const pollData = await response.json();
-      const parsedPollData = {
-        ...pollData,
-        options: Array.isArray(pollData.options)
-          ? pollData.options
-          : JSON.parse(pollData.options || "[]"),
-        isActive: true,
-      };
-      setCurrentPoll(parsedPollData);
-      return parsedPollData;
+
+      // Ensure options is always an array
+      pollData.options = Array.isArray(pollData.options)
+        ? pollData.options
+        : JSON.parse(pollData.options || "[]");
+
+      setCurrentPoll((prevPoll) => {
+        if (JSON.stringify(prevPoll) !== JSON.stringify(pollData)) {
+          return pollData;
+        }
+        return prevPoll;
+      });
+      await fetchPollResults(pollId);
+      return pollData;
     } catch (error) {
       console.error("Error fetching poll:", error);
       throw error;
@@ -174,8 +176,9 @@ export const PollProvider = ({ children }) => {
         createPoll,
         submitAnswer,
         endPoll,
-        fetchPoll,
         hasVoted,
+        fetchPoll,
+        fetchPollResults,
       }}
     >
       {children}

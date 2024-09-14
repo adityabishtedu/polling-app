@@ -6,26 +6,29 @@ const socketService = require("../services/socketService");
 const { calculateResults, endPoll } = require("../utils/pollUtils");
 
 exports.createPoll = async (req, res) => {
+  const transaction = await sequelize.transaction();
   try {
-    // End any active polls
-    const activePoll = await Poll.findOne({ where: { isActive: true } });
-    if (activePoll) {
-      const results = await endPoll(activePoll.id);
-      socketService.emitToPoll(activePoll.id, "pollEnded", results);
-    }
+    await Poll.update(
+      { isActive: false },
+      { where: { isActive: true }, transaction }
+    );
 
-    // Create new poll
-    const newPoll = await Poll.create({
-      ...req.body,
-      isActive: true,
-      // No need to stringify options here, the model will handle it
-    });
+    const newPoll = await Poll.create(
+      {
+        question: req.body.question,
+        options: JSON.stringify(req.body.options),
+        correctAnswer: req.body.correctAnswer,
+        isActive: true,
+      },
+      { transaction }
+    );
 
-    // Emit new poll to all connected clients
+    await transaction.commit();
+
     socketService.emitToAll("newPoll", newPoll.toJSON());
-
     res.status(201).json(newPoll.toJSON());
   } catch (error) {
+    await transaction.rollback();
     console.error("Error creating poll:", error);
     res
       .status(500)
@@ -35,11 +38,16 @@ exports.createPoll = async (req, res) => {
 
 // Add a new endpoint to get the active poll
 exports.getActivePoll = async (req, res) => {
+  console.log("Fetching active poll");
   try {
     const activePoll = await Poll.findOne({ where: { isActive: true } });
     if (activePoll) {
-      res.json(activePoll);
+      const pollData = activePoll.toJSON();
+      pollData.options = JSON.parse(pollData.options);
+      console.log("Active poll found:", pollData);
+      res.json(pollData);
     } else {
+      console.log("No active poll found");
       res.status(404).json({ message: "No active poll found" });
     }
   } catch (error) {
@@ -52,19 +60,11 @@ exports.getActivePoll = async (req, res) => {
 
 exports.getLiveResults = async (req, res) => {
   try {
-    const { pollId } = req.params;
-    const poll = await Poll.findByPk(pollId);
-    if (!poll) {
-      return res.status(404).json({ message: "Poll not found" });
-    }
-
-    const results = await calculateResults(pollId);
-    res.json({
-      question: poll.question,
-      options: results,
-      correctAnswer: poll.correctAnswer,
-    });
+    const { id } = req.params;
+    const results = await calculateResults(id);
+    res.json({ results });
   } catch (error) {
+    console.error("Error fetching live results:", error);
     res
       .status(500)
       .json({ message: "Error fetching live results", error: error.message });
@@ -78,8 +78,11 @@ exports.getPoll = async (req, res) => {
     if (!poll) {
       return res.status(404).json({ message: "Poll not found" });
     }
-    res.json(poll);
+    const pollData = poll.toJSON();
+    pollData.options = JSON.parse(pollData.options);
+    res.json(pollData);
   } catch (error) {
+    console.error("Error fetching poll:", error);
     res
       .status(500)
       .json({ message: "Error fetching poll", error: error.message });
@@ -111,13 +114,22 @@ exports.submitAnswer = async (req, res) => {
 };
 
 exports.endPoll = async (req, res) => {
+  const transaction = await sequelize.transaction();
   try {
     const { id } = req.params;
-    const results = await endPoll(id);
-    socketService.emitToAll("pollEnded", { pollId: id, results });
+    const poll = await Poll.findByPk(id, { transaction });
+    if (!poll) {
+      await transaction.rollback();
+      return res.status(404).json({ message: "Poll not found" });
+    }
 
-    res.json({ message: "Poll ended successfully", results });
+    await poll.update({ isActive: false }, { transaction });
+    await transaction.commit();
+
+    socketService.emitToAll("pollEnded", { pollId: id });
+    res.json({ message: "Poll ended successfully" });
   } catch (error) {
+    await transaction.rollback();
     console.error("Error ending poll:", error);
     res
       .status(500)

@@ -1,24 +1,20 @@
 const { StudentResponse, Poll } = require("../models");
 const sequelize = require("../config/database");
 
-const calculateResults = async (pollId) => {
+async function calculateResults(pollId) {
   const responses = await StudentResponse.findAll({
     where: { pollId },
-    attributes: [
-      "selectedOption",
-      [sequelize.fn("COUNT", sequelize.col("selectedOption")), "count"],
-    ],
-    group: ["selectedOption"],
+    attributes: ["selectedOption"],
   });
 
   const results = {};
   responses.forEach((response) => {
-    results[response.selectedOption] = response.getDataValue("count");
+    const option = response.selectedOption;
+    results[option] = (results[option] || 0) + 1;
   });
 
   return results;
-};
-
+}
 const endPoll = async (pollId) => {
   await Poll.update({ isActive: false }, { where: { id: pollId } });
   const results = await calculateResults(pollId);

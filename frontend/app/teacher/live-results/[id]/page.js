@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import {
@@ -105,54 +105,46 @@ const OptionBox = styled(Box)({
 });
 
 export default function LiveResultsPage() {
-  const { pollId } = useParams();
-  const { currentPoll, pollResults, fetchPoll } = usePoll();
+  const params = useParams();
+  const pollId = params?.id;
+
+  const { currentPoll, pollResults, fetchPoll, fetchPollResults } = usePoll();
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const loadPollData = async () => {
-      setLoading(true);
+  const loadPollData = useCallback(async () => {
+    if (pollId) {
       try {
         await fetchPoll(pollId);
+        await fetchPollResults(pollId);
+        setLoading(false);
       } catch (error) {
         console.error("Error fetching poll data:", error);
-      } finally {
         setLoading(false);
       }
-    };
+    }
+  }, [pollId, fetchPoll, fetchPollResults]);
 
+  useEffect(() => {
     loadPollData();
-    // Set up an interval to fetch updated results
+
     const interval = setInterval(loadPollData, 5000);
 
     return () => clearInterval(interval);
-  }, [pollId, fetchPoll]);
+  }, [loadPollData]);
 
-  const getTotalVotes = () => {
-    return pollResults
-      ? Object.values(pollResults).reduce((a, b) => a + b, 0)
-      : 0;
-  };
+  const getTotalVotes = useCallback(() => {
+    if (!pollResults) return 0;
+    return Object.values(pollResults).reduce((sum, count) => sum + count, 0);
+  }, [pollResults]);
 
-  const getPercentage = (option) => {
-    const totalVotes = getTotalVotes();
-    return totalVotes > 0
-      ? Math.round(((pollResults[option] || 0) / totalVotes) * 100)
-      : 0;
-  };
-
-  // Parse options if they're stored as a JSON string
-  const parseOptions = (options) => {
-    if (typeof options === "string") {
-      try {
-        return JSON.parse(options);
-      } catch (error) {
-        console.error("Error parsing options:", error);
-        return [];
-      }
-    }
-    return Array.isArray(options) ? options : [];
-  };
+  const getPercentage = useCallback(
+    (option) => {
+      const totalVotes = getTotalVotes();
+      if (totalVotes === 0) return 0;
+      return Math.round(((pollResults?.[option] || 0) / totalVotes) * 100);
+    },
+    [pollResults, getTotalVotes]
+  );
 
   return (
     <StyledContainer>
@@ -209,8 +201,9 @@ export default function LiveResultsPage() {
               </Typography>
             </QuestionHeader>
             <Box sx={{ padding: "18px 16px" }}>
-              {parseOptions(currentPoll.options).map((option, index) => {
+              {currentPoll.options.map((option, index) => {
                 const percentage = getPercentage(option);
+                const votes = pollResults?.[option] || 0;
                 return (
                   <OptionBox key={index}>
                     <Box
@@ -268,7 +261,7 @@ export default function LiveResultsPage() {
                           color: percentage > 0 ? "#FFFFFF" : "#000000",
                         }}
                       >
-                        {percentage}%
+                        {percentage}% ({votes} vote{votes !== 1 ? "s" : ""})
                       </Typography>
                     </Box>
                   </OptionBox>

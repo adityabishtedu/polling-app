@@ -65,6 +65,23 @@ const GradientButton = styled(Button)({
   top: "851px",
 });
 
+const EndPollButton = styled(Button)({
+  background: "#F2F2F2",
+  borderRadius: "34px",
+  padding: "17px 30px",
+  fontFamily: "Sora",
+  fontWeight: 600,
+  fontSize: "18px",
+  lineHeight: "23px",
+  color: "#7C57C2",
+  textTransform: "none",
+  position: "absolute",
+  height: "57.58px",
+  left: "870px",
+  top: "851px",
+  border: "2px solid #7C57C2",
+});
+
 export default function CreatePoll() {
   const [question, setQuestion] = useState("");
   const [options, setOptions] = useState(["", ""]);
@@ -96,10 +113,6 @@ export default function CreatePoll() {
   };
 
   const handleCreatePoll = async () => {
-    if (currentPoll && currentPoll.isActive) {
-      console.log("Ending current poll");
-      await endPoll(currentPoll.id);
-    }
     if (
       !question ||
       options.filter((option) => option.trim() !== "").length < 2
@@ -124,6 +137,20 @@ export default function CreatePoll() {
     } catch (error) {
       console.error("Error creating poll:", error);
       setError(error.message);
+    }
+  };
+
+  const handleEndPoll = async () => {
+    if (currentPoll && currentPoll.isActive) {
+      try {
+        await endPoll(currentPoll.id);
+        setError("Current poll ended successfully.");
+      } catch (error) {
+        console.error("Error ending poll:", error);
+        setError("Failed to end the current poll.");
+      }
+    } else {
+      setError("No active poll to end.");
     }
   };
 
@@ -302,6 +329,10 @@ export default function CreatePoll() {
       </Box>
 
       <GradientButton onClick={handleCreatePoll}>Ask Question</GradientButton>
+
+      {currentPoll && currentPoll.isActive && (
+        <EndPollButton onClick={handleEndPoll}>End Current Poll</EndPollButton>
+      )}
 
       <Snackbar
         open={!!error}

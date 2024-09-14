@@ -2,41 +2,33 @@ const { Sequelize } = require("sequelize");
 const config = require("./database");
 const path = require("path");
 
-async function runMigrations() {
-  const sequelize = new Sequelize(
-    config.database,
-    config.username,
-    config.password,
-    {
-      host: config.host,
-      dialect: config.dialect,
-      // Add any other necessary options from your database.js file
-    }
-  );
-
+async function runMigrations(migrationName = null) {
   try {
-    await sequelize.authenticate();
+    await config.authenticate();
     console.log("Connection has been established successfully.");
 
     const Umzug = require("umzug");
     const umzug = new Umzug({
       migrations: {
         path: path.join(__dirname, "../migrations"),
-        params: [sequelize.getQueryInterface(), Sequelize],
+        params: [config.getQueryInterface(), Sequelize],
       },
       storage: "sequelize",
       storageOptions: {
-        sequelize: sequelize,
+        sequelize: config,
       },
     });
 
-    await umzug.up();
-    console.log("All migrations have been executed successfully.");
+    if (migrationName) {
+      await umzug.up({ to: migrationName });
+      console.log(`Migration ${migrationName} has been executed successfully.`);
+    } else {
+      await umzug.up();
+      console.log("All migrations have been executed successfully.");
+    }
   } catch (error) {
     console.error("Unable to connect to the database:", error);
-  } finally {
-    await sequelize.close();
   }
 }
 
-runMigrations();
+module.exports = runMigrations;

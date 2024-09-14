@@ -5,9 +5,11 @@ const { Op } = require("sequelize");
 const socketService = require("../services/socketService");
 const { calculateResults, endPoll } = require("../utils/pollUtils");
 
+// Modify the createPoll function to end active polls before creating a new one
 exports.createPoll = async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
+    // End all active polls
     await Poll.update(
       { isActive: false },
       { where: { isActive: true }, transaction }
@@ -139,15 +141,18 @@ exports.endPoll = async (req, res) => {
 
 // ... (other controller functions remain the same)
 
+// Add this function to handle ending all polls
 exports.endAllPolls = async (req, res) => {
   try {
-    const activePolls = await Poll.findAll({ where: { isActive: true } });
-    for (const poll of activePolls) {
-      const results = await endPoll(poll.id);
-      socketService.emitToPoll(poll.id, "pollEnded", results);
-    }
+    const activePolls = await Poll.update(
+      { isActive: false },
+      { where: { isActive: true } }
+    );
     res.status(200).json({ message: "All polls ended successfully" });
   } catch (error) {
-    res.status(500).json({ message: "Error ending polls", error });
+    console.error("Error ending all polls:", error);
+    res
+      .status(500)
+      .json({ message: "Error ending all polls", error: error.message });
   }
 };

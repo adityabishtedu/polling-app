@@ -168,6 +168,25 @@ export const PollProvider = ({ children }) => {
     }
   };
 
+  const endAllPolls = async () => {
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/polls/end-all`,
+        {
+          method: "POST",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to end all polls");
+      }
+      setCurrentPoll(null);
+    } catch (error) {
+      console.error("Error ending all polls:", error);
+      throw error;
+    }
+  };
+
   return (
     <PollContext.Provider
       value={{
@@ -179,6 +198,7 @@ export const PollProvider = ({ children }) => {
         hasVoted,
         fetchPoll,
         fetchPollResults,
+        endAllPolls,
       }}
     >
       {children}

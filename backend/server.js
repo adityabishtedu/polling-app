@@ -3,13 +3,16 @@ const cors = require("cors");
 const sequelize = require("./src/config/database");
 const pollRoutes = require("./src/routes/pollRoutes");
 const socketService = require("./src/services/socketService");
+require("dotenv").config();
 
 const app = express();
 
 // Update CORS configuration
 app.use(
   cors({
-    origin: "https://polling-app-production-5c61.up.railway.app", // adjust this to match your frontend URL
+    origin:
+      process.env.FRONTEND_URL ||
+      "https://polling-app-production-5c61.up.railway.app", // adjust this to match your frontend URL
     credentials: true,
   })
 );
@@ -32,13 +35,15 @@ app.use((err, req, res, next) => {
     .json({ message: "Something went wrong!", error: err.message });
 });
 
+const PORT = process.env.PORT || 3080;
+
 // Sync Sequelize models with the database
 sequelize
   .sync({ force: false })
   .then(() => {
     console.log("Database synced");
-    const server = app.listen(process.env.PORT || 3080, () => {
-      console.log(`Server is running on port ${process.env.PORT || 3080}`);
+    const server = app.listen(PORT, () => {
+      console.log(`Server is running on port ${PORT}`);
     });
 
     // Initialize socket.io
